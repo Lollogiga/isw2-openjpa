@@ -1,0 +1,58 @@
+# Nome del workflow, visibile nella tab "Actions" di GitHub
+name: Java CI for OpenJPA (JDK 11)
+
+# Eventi che attivano l'esecuzione del workflow
+on:
+  # Esegui su push verso i rami main o master
+  push:
+    branches: [ main, master ]
+  # Esegui anche sulle pull request verso i rami main o master
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # Unico job chiamato "build"
+  build:
+    # Sistema operativo su cui eseguire i comandi (l'ultima versione di Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Clona il codice del tuo repository sulla macchina virtuale
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Imposta l'ambiente Java con la versione 11 (JDK)
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          # Specifica la versione di Java da usare
+          java-version: '11'
+          # Specifica la distribuzione del JDK (Temurin è un'ottima scelta open-source)
+          distribution: 'temurin'
+
+      # 3. Configura la cache per le dipendenze di Maven
+      #    Questo passaggio accelera le build future riutilizzando i pacchetti già scaricati.
+      #    Va messo prima del comando di build.
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          # Il percorso della cartella da mettere in cache (il repository locale di Maven)
+          path: ~/.m2/repository
+          # La chiave per identificare la cache. Cambia se i pom.xml vengono modificati.
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          # Chiavi di ripristino nel caso non ci sia una corrispondenza esatta
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # 4. Esegue il build con Maven
+      #    Usa "clean install" che è uno standard più robusto di "package".
+      #    'clean' pulisce i target precedenti, 'install' compila, testa e installa
+      #    gli artefatti nel repository locale .m2, necessario per progetti multi-modulo.
+      - name: Build with Maven
+        run: mvn -B clean install --file pom.xml
+
+      # Nota: Se la build fallisce a causa degli stessi errori che hai riscontrato localmente
+      # (es. maven-invoker-plugin), assicurati che le modifiche che hai fatto ai file pom.xml
+      # siano state salvate e committate nel tuo repository. In alternativa, puoi aggiungere
+      # flag specifici al comando qui sopra, ad esempio:
+      # run: mvn -B clean install -Dinvoker.skip=true --file pom.xml

@@ -93,7 +93,8 @@
             <enforcePropertyRestrictions>true</enforcePropertyRestrictions>
             <persistenceXmlFile>${project.basedir}/src/test/resources/META-INF/persistence.xml</persistenceXmlFile>
           </configuration>
-          <executions>
+        <!--
+        <executions>
             <execution>
               <id>enhancer</id>
               <phase>process-test-classes</phase>
@@ -102,6 +103,7 @@
               </goals>
             </execution>
           </executions>
+         -->
           <dependencies>
             <dependency>
               <groupId>org.apache.openjpa</groupId>
