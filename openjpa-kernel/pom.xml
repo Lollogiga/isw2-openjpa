@@ -37,6 +37,19 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.12.0</version> <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.12.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.openjpa</groupId>
             <artifactId>openjpa-lib</artifactId>
             <version>${project.version}</version>
@@ -90,6 +103,16 @@
 
     <build>
         <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <argLine>${argLine}</argLine> <!-- NECESSARIO per JaCoCo -->
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>javacc-maven-plugin</artifactId>
@@ -177,4 +200,175 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>manual-tests</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+
+                    <!-- PITEST solo per test manuali -->
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>1.14.0</version>
+                        <configuration>
+                            <targetClasses>
+                                <param>org.apache.openjpa.util.CacheMap</param>
+                                <param>org.apache.openjpa.util.ProxyManagerImpl</param>
+                            </targetClasses>
+                            <targetTests>
+                                <param>**.*Test</param>
+                            </targetTests>
+                            <excludedTestClasses>
+                                <param>**.*LLMTest</param>
+                            </excludedTestClasses>
+                            <mutators>
+                                <mutator>DEFAULTS</mutator>
+                            </mutators>
+                            <outputFormats>
+                                <param>HTML</param>
+                            </outputFormats>
+                            <verbose>true</verbose>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Jacoco per test manuali -->
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.10</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent-manual</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                                <configuration>
+                                    <propertyName>argLine</propertyName>
+                                    <destFile>${project.build.directory}/jacoco-manual.exec</destFile>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>report-manual</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                                <configuration>
+                                    <dataFile>${project.build.directory}/jacoco-manual.exec</dataFile>
+                                    <outputDirectory>${project.reporting.outputDirectory}/jacoco-manual</outputDirectory>
+                                    <includes>
+                                        <include>org/apache/openjpa/util/CacheMap.class</include>
+                                        <include>org/apache/openjpa/util/ProxyManagerImpl.class</include>
+                                    </includes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Solo test manuali -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.2.5</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*Test.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*LLMTest.java</exclude>
+                            </excludes>
+                            <argLine>@{argLine}</argLine>
+                        </configuration>
+                    </plugin>
+
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>llm-tests</id>
+            <build>
+                <plugins>
+
+                    <!-- PITEST solo per test LLM -->
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>1.14.0</version>
+                        <configuration>
+                            <targetClasses>
+                                <param>org.apache.openjpa.util.CacheMap</param>
+                                <param>org.apache.openjpa.util.ProxyManagerImpl</param>
+                            </targetClasses>
+                            <targetTests>
+                                <param>**.*LLMTest</param>
+                            </targetTests>
+                            <excludedTestClasses>
+                                <param>**.*Test</param>
+                            </excludedTestClasses>
+                            <mutators>
+                                <mutator>DEFAULTS</mutator>
+                            </mutators>
+                            <outputFormats>
+                                <param>HTML</param>
+                            </outputFormats>
+                            <verbose>true</verbose>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Jacoco per test LLM -->
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.10</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent-llm</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                                <configuration>
+                                    <propertyName>argLineLLM</propertyName>
+                                    <destFile>${project.build.directory}/jacoco-llm.exec</destFile>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>report-llm</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                                <configuration>
+                                    <dataFile>${project.build.directory}/jacoco-llm.exec</dataFile>
+                                    <outputDirectory>${project.reporting.outputDirectory}/jacoco-llm</outputDirectory>
+                                    <includes>
+                                        <include>org/apache/openjpa/util/CacheMap.class</include>
+                                        <include>org/apache/openjpa/util/ProxyManagerImpl</include>
+                                    </includes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Solo test LLM -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.2.5</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*LLMTest.java</include>
+                            </includes>
+                            <argLine>@{argLineLLM}</argLine>
+                        </configuration>
+                    </plugin>
+
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
