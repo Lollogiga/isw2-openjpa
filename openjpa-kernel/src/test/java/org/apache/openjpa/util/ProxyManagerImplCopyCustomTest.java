@@ -26,6 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.util.*;
 
@@ -79,7 +80,11 @@ public class ProxyManagerImplCopyCustomTest {
             case NULL:
                 return null;
             case PROXY:
-                return proxyManager.newDateProxy(Date.class);
+                //Modified for remove mutation 294
+                Proxy proxyMock = Mockito.mock(Proxy.class);
+                Date copiedDate = new Date(12345);
+                Mockito.when(proxyMock.copy(proxyMock)).thenReturn(copiedDate);
+                return proxyMock;
             case COLLECTION:
                 return new ArrayList<>(Arrays.asList("test"));
             case MAP:
@@ -121,6 +126,7 @@ public class ProxyManagerImplCopyCustomTest {
                 // La copia deve essere un'istanza della classe base, NON del proxy
                 Assert.assertTrue(copy instanceof Date);
                 Assert.assertFalse("La copia non deve più essere un'istanza di Proxy", copy instanceof Proxy);
+                Assert.assertEquals(new Date(12345), copy);
                 break;
 
             case COLLECTION:

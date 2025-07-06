@@ -73,26 +73,36 @@ public class ProxyManagerImplNewCustomProxyCoverageTest {
 
     @Test
     public void testNewCustomProxyCoverage() {
-        Proxy proxy = proxyManager.newCustomProxy(obj, false);
+            Proxy proxy = proxyManager.newCustomProxy(obj, false);
 
-        Assert.assertNotNull("Il proxy non deve essere null", proxy);
+            Assert.assertNotNull("Il proxy non deve essere null", proxy);
 
-        switch (objectInstanceType) {
-            case SORTED_SET_WITH_COMPARATOR:
-                Assert.assertTrue("Il proxy deve essere un SortedSet", proxy instanceof SortedSet);
-                break;
-            case SORTED_MAP_WITH_COMPARATOR:
-                Assert.assertTrue("Il proxy deve essere un SortedMap", proxy instanceof SortedMap);
-                break;
-            case TIMESTAMP:
-                Assert.assertTrue("Il proxy deve essere un Timestamp", proxy instanceof Timestamp);
-                Assert.assertEquals("I nanosecondi devono essere mantenuti",
-                        ((Timestamp) obj).getNanos(), ((Timestamp) proxy).getNanos());
-                break;
-            case PROXYABLE_BEAN:
-                Assert.assertTrue("Il proxy deve essere un'istanza di ProxyableInstance",
-                        proxy instanceof ProxyableInstance);
-                break;
+            switch (objectInstanceType) {
+                case SORTED_SET_WITH_COMPARATOR:
+                    //Mutation 322
+                    Assert.assertTrue("Il proxy deve essere un SortedSet", proxy instanceof SortedSet);
+                    Assert.assertEquals("Il comparator di SortedSet deve essere mantenuto", ((SortedSet) obj).comparator(), ((SortedSet) proxy).comparator());
+                    // Checks that the content is copied
+                    Assert.assertEquals("Il contenuto di SortedSet deve essere copiato",((SortedSet) obj).size(), ((SortedSet) proxy).size());
+                    break;
+
+                case SORTED_MAP_WITH_COMPARATOR:
+                    //Mutation 330
+                    Assert.assertTrue("Il proxy deve essere un SortedMap", proxy instanceof SortedMap);
+                    Assert.assertEquals("Il comparator di SortedMap deve essere mantenuto", ((SortedMap) obj).comparator(), ((SortedMap) proxy).comparator());
+                    Assert.assertEquals("Il contenuto di SortedMap deve essere copiato", ((SortedMap) obj).size(), ((SortedMap) proxy).size());
+                    break;
+
+                case TIMESTAMP:
+                    Assert.assertTrue("Il proxy deve essere un Timestamp", proxy instanceof Timestamp);
+                    Assert.assertEquals("I nanosecondi devono essere mantenuti", ((Timestamp) obj).getNanos(), ((Timestamp) proxy).getNanos());
+                    Assert.assertEquals("Il tempo del Timestamp deve essere mantenuto", ((Timestamp) obj).getTime(), ((Timestamp) proxy).getTime());
+                    break;
+
+                case PROXYABLE_BEAN:
+                    Assert.assertTrue("Il proxy deve essere un'istanza di ProxyableInstance",
+                            proxy instanceof ProxyableInstance);
+                    break;
+            }
         }
     }
-}
