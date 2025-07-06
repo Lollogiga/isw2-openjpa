@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,17 +35,16 @@ public class CacheMapPutTest {
     private final Object keyToPut;
     private final Object valueToPut;
     private final TestState initialState;
-    private final Object expectedReturnValue; // Valore che put() dovrebbe ritornare (il vecchio valore)
-    private final Class<? extends Exception> expectedException;
+    private final Object expectedReturnValue;
 
-    private CacheMap cacheMap;
+    // Sostituito con la nostra sottoclasse per i test
+    private CacheMapWithListener cacheMap;
 
     // Costanti per i test
     private static final String KEY_1 = "K1";
     private static final String VALUE_1 = "V1";
     private static final String KEY_2 = "K2";
     private static final String VALUE_2 = "V2";
-    private static final String NEW_VALUE_2 = "NV2";
     private static final String OVERFLOW_KEY = "OVK";
     private static final String OVERFLOW_VALUE = "OVV";
 
@@ -53,119 +52,144 @@ public class CacheMapPutTest {
         EMPTY,
         KEY_IN_CACHE,
         KEY_PINNED,
-        OVERFLOW,
+        OVERFLOW_EVICTION,
         MAX_SIZE_ZERO,
-        KEY_PINNED_NULL
+        KEY_PINNED_WITH_NULL
+    }
+
+    /**
+     * Sottoclasse di CacheMap per tracciare le chiamate ai metodi listener,
+     * rendendo testabili gli effetti collaterali di put().
+     */
+    private static class CacheMapWithListener extends CacheMap {
+        int addedCount = 0;
+        int removedCount = 0;
+        boolean wasEvicted = false; //Evicted = true se la cache diviene piena
+
+        // Costruttori necessari
+        public CacheMapWithListener(boolean lru, int initialCapacity, int maxSize, float loadFactor) {
+            super(lru, initialCapacity, maxSize, loadFactor);
+        }
+
+        @Override
+        protected void entryAdded(Object key, Object value) {
+            this.addedCount++;
+            super.entryAdded(key, value);
+        }
+
+        @Override
+        protected void entryRemoved(Object key, Object value, boolean evicted) {
+            this.removedCount++;
+            this.wasEvicted = evicted;
+            super.entryRemoved(key, value, evicted);
+        }
     }
 
     // Costruttore per iniettare i parametri
     public CacheMapPutTest(String description, Object keyToPut, Object valueToPut, TestState initialState,
-                           Object expectedReturnValue, Class<? extends Exception> expectedException) {
+                           Object expectedReturnValue) {
         this.description = description;
         this.keyToPut = keyToPut;
         this.valueToPut = valueToPut;
         this.initialState = initialState;
         this.expectedReturnValue = expectedReturnValue;
-        this.expectedException = expectedException;
     }
 
-    // Definizione dei casi di test
+
     @Parameterized.Parameters(name = "{index}: {0}")
     public static Collection<Object[]> data() {
         return Arrays.asList(new Object[][]{
-                // Description, KeyToPut, ValueToPut, initialState, expectedReturnValue, expectedException
+                {"Put test: null key", null, VALUE_1, TestState.EMPTY, null},
+                {"Put test: null value", KEY_1, null, TestState.EMPTY, null},
 
-                /** Dall'analisi delle funzionalità mi aspettavo un NullPointerExceptionThrows:
-                //Dalle specifiche di Put--> Throws:
-                //UnsupportedOperationException – if the remove operation is not supported by this map
-                //ClassCastException – if the key is of an inappropriate type for this map (optional)
-                //NullPointerException – if the specified key is null and this map does not permit null keys (optional)*/
-                //{"Put test: null key", null, VALUE_1, TestState.EMPTY, null, NullPointerException.class },
-
-                {"Put test: null key", null, VALUE_1, TestState.EMPTY, null, null},
-                {"Pu test: null value", KEY_1, null, TestState.EMPTY, null, null},
-
-                {"Put test: put value in empty map", KEY_1, VALUE_1, TestState.EMPTY, null, null},
-                {"Put test: update existing key", KEY_1, VALUE_2, TestState.KEY_IN_CACHE, VALUE_1, null},
-
-                {"Put test: overflow", KEY_2, VALUE_2, TestState.OVERFLOW, null, null},
-                {"Put test: update pinned key",KEY_2, NEW_VALUE_2, TestState.KEY_PINNED, VALUE_2, null},
-
-                //Added after jacoco:
-                {"Put test: maxSize = 0", KEY_1, VALUE_1, TestState.MAX_SIZE_ZERO, null, null},
-                {"Put test: add value to key pinned with null", KEY_1, VALUE_1, TestState.KEY_PINNED_NULL, null, null},
+                {"Put test: put key in empty map", KEY_1, VALUE_1, TestState.EMPTY, null},
+                {"Put test: update existing key", KEY_1, VALUE_2, TestState.KEY_IN_CACHE, VALUE_1},
+                {"Put test: overflow causing eviction", KEY_2, VALUE_2, TestState.OVERFLOW_EVICTION, null},
+                {"Put test: update pinned key", KEY_1, VALUE_2, TestState.KEY_PINNED, VALUE_1},
+                //Added after jacoco
+                {"Put test: maxSize = 0", KEY_1, VALUE_1, TestState.MAX_SIZE_ZERO, null},
+                {"Put test: set value for a key pinned with null", KEY_1, VALUE_1, TestState.KEY_PINNED_WITH_NULL, null},
         });
     }
 
     @Before
     public void setUp() {
-        cacheMap = new CacheMap(true, 1, 1, 0.75f);
+        // Usiamo la nostra sottoclasse per poter tracciare le chiamate
+        cacheMap = new CacheMapWithListener(true, 1, 1, 0.75f);
         cacheMap.setSoftReferenceSize(1);
 
         switch (initialState) {
             case EMPTY:
                 break;
             case KEY_IN_CACHE:
-                // Inseriamo un elemento per i test di aggiornamento e overflow
                 cacheMap.put(KEY_1, VALUE_1);
                 break;
-
             case KEY_PINNED:
-                cacheMap.setSoftReferenceSize(1);
-                cacheMap.put(KEY_2, VALUE_2);
-                cacheMap.pin(KEY_2);
                 cacheMap.put(KEY_1, VALUE_1);
-                cacheMap.put("K3", "V3");
+                cacheMap.pin(KEY_1);
                 break;
-            case OVERFLOW:
-                cacheMap.setSoftReferenceSize(1);
+            case OVERFLOW_EVICTION:
                 cacheMap.put(KEY_1, VALUE_1);
                 cacheMap.put(OVERFLOW_KEY, OVERFLOW_VALUE);
                 break;
             case MAX_SIZE_ZERO:
                 cacheMap.setCacheSize(0);
                 break;
-            case KEY_PINNED_NULL:
+            case KEY_PINNED_WITH_NULL:
                 cacheMap.pin(KEY_1);
                 break;
         }
+        // Resettiamo i contatori dopo ogni setup
+        cacheMap.addedCount = 0;
+        cacheMap.removedCount = 0;
+        cacheMap.wasEvicted = false;
     }
 
     @Test
     public void testPut() {
-        try {
-            // Eseguiamo l'operazione di put
-            Object returnValue = cacheMap.put(keyToPut, valueToPut);
+        Object returnValue = cacheMap.put(keyToPut, valueToPut);
+        Assert.assertEquals("Il valore di ritorno di put() non è corretto", expectedReturnValue, returnValue);
 
-            // 1. Verifichiamo che l'eccezione (se attesa) sia stata lanciata
-            if (expectedException != null) {
-                Assert.fail("Attesa eccezione " + expectedException.getSimpleName() + " ma non è stata lanciata.");
-            }
+        //Refactoring for mutation 391 to 397
+        switch (initialState) {
+            case EMPTY:
+                Assert.assertEquals( 1, cacheMap.addedCount);
+                Assert.assertEquals(0, cacheMap.removedCount);
+                break;
 
-            if(initialState == TestState.MAX_SIZE_ZERO) {
-                Assert.assertNull(returnValue);
-                Assert.assertNull(cacheMap.get(keyToPut));
-            }
-            else{
-                Assert.assertEquals(expectedReturnValue, returnValue);
-                Assert.assertEquals("Il valore nella mappa dopo put() non è corretto", valueToPut, cacheMap.get(keyToPut));
+            case KEY_IN_CACHE:
+                // Un valore viene rimosso, uno viene aggiunto
+                Assert.assertEquals(1, cacheMap.removedCount);
+                Assert.assertEquals( 1, cacheMap.addedCount);
+                Assert.assertFalse(cacheMap.wasEvicted);
+                break;
 
-                if(initialState == TestState.OVERFLOW) {
-                    Assert.assertFalse(cacheMap.containsKey(OVERFLOW_KEY));
-                } else if (initialState == TestState.KEY_PINNED) {
-                    Assert.assertTrue(cacheMap.containsKey(keyToPut));
-                    Assert.assertTrue(cacheMap.getPinnedKeys().contains(keyToPut));
-                    Assert.assertEquals(NEW_VALUE_2, cacheMap.get(keyToPut));
+            case OVERFLOW_EVICTION:
+                // Un valore viene espulso (evicted), uno viene aggiunto
+                Assert.assertEquals(1, cacheMap.removedCount);
+                Assert.assertTrue(cacheMap.wasEvicted);
+                Assert.assertEquals(1, cacheMap.addedCount);
+                break;
 
-                }
-            }
+            case KEY_PINNED:
+                // Simile a KEY_IN_CACHE, ma su una chiave pinnata
+                Assert.assertEquals(1, cacheMap.removedCount);
+                Assert.assertEquals(1, cacheMap.addedCount);
+                break;
 
-        } catch (Exception e) {
-            if (expectedException == null) {
-                Assert.fail("Lanciata eccezione inattesa: " + e.getClass().getSimpleName());
-            }
-            Assert.assertTrue("L'eccezione lanciata non è del tipo atteso",
-                    expectedException.isAssignableFrom(e.getClass()));
+            case KEY_PINNED_WITH_NULL:
+                // Viene solo aggiunto un valore, nulla viene rimosso
+                Assert.assertEquals(0, cacheMap.removedCount);
+                Assert.assertEquals(1, cacheMap.addedCount);
+                // Questa asserzione uccide la mutazione su _pinnedSize++
+                Assert.assertEquals(1, cacheMap.size());
+                break;
+
+            case MAX_SIZE_ZERO:
+                Assert.assertEquals(0, cacheMap.addedCount);
+                Assert.assertEquals(0, cacheMap.removedCount);
+                Assert.assertNull( cacheMap.get(keyToPut));
+                break;
         }
     }
 

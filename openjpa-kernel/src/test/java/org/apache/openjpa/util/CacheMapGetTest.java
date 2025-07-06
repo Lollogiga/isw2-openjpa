@@ -119,7 +119,13 @@ public class CacheMapGetTest {
             Assert.assertEquals("Valore restituito non corretto", expectedValue, result);
 
             if (initialState == TestState.KEY_EVICTED_TO_SOFT) {
-                // Dopo la get, la chiave K1 è tornata "attiva", quindi mettendo un nuovo elemento dovrebbe uscire K2
+                //Mutazione 378:
+                // Il setup ha messo K1 nella soft cache e K2 nella cache principale.
+                // La chiamata a cacheMap.get(KEY_1) deve aver promosso K1 nella cache principale,
+                // espellendo K2 (dato che la dimensione della cache principale è 1).
+                Assert.assertFalse("K2 doveva essere espulso dalla cache principale", cacheMap.containsKey(KEY_2));
+                Assert.assertTrue("K1 doveva essere promosso nella cache principale", cacheMap.containsKey(KEY_1));
+
                 cacheMap.put("K3", "V3");
                 Object val = cacheMap.get(KEY_1);
                 Assert.assertEquals(VALUE_1, val);

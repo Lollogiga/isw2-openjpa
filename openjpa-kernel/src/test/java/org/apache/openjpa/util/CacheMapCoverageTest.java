@@ -17,8 +17,10 @@
 
 package org.apache.openjpa.util;
 
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.junit.*;
 import org.junit.Test;
@@ -118,7 +120,7 @@ public class CacheMapCoverageTest {
         cacheMap.putAll(moreEntries, false);
 
         Assert.assertEquals(2, cacheMap.size());
-        
+
         Assert.assertEquals("V3", cacheMap.get("K3"));
         Assert.assertEquals(VALUE_1, cacheMap.get(KEY_1)); // Unchanged
 
@@ -193,4 +195,38 @@ public class CacheMapCoverageTest {
         Assert.assertTrue(cacheMap.getPinnedKeys().isEmpty());
         Assert.assertEquals(0, cacheMap.size());
     }
+
+    //Added for mutation 311 e 330
+    @Test
+    public void testWriteUnlockCalledOnException() throws Exception {
+        // GIVEN
+        CacheMap cacheMap = new CacheMap(true, 1, 1, 0.75f) {
+            @Override
+            protected Object remove(Map map, Object key) {
+                throw new RuntimeException("Simulated failure");
+            }
+        };
+
+        Field lockField = CacheMap.class.getDeclaredField("rwl");
+        lockField.setAccessible(true);
+        ReentrantReadWriteLock lock = (ReentrantReadWriteLock) lockField.get(cacheMap);
+
+        //Test su pin:
+        try {
+            cacheMap.pin(KEY_1);
+        } catch (RuntimeException ignored) {
+        }
+
+        Assert.assertEquals("Il write lock dovrebbe essere stato rilasciato", 0, lock.getWriteHoldCount());
+
+        //Test su unpin:
+        try {
+            cacheMap.unpin(KEY_1);
+        } catch (RuntimeException ignored) {
+        }
+
+        Assert.assertEquals("Il write lock dovrebbe essere stato rilasciato", 0, lock.getWriteHoldCount());
+
+    }
+
 }
