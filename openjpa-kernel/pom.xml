@@ -303,15 +303,12 @@
                         <version>1.14.0</version>
                         <configuration>
                             <targetClasses>
-                                <param>org.apache.openjpa.util.CacheMap</param>
+                                <!--<param>org.apache.openjpa.util.CacheMap</param>-->
                                 <param>org.apache.openjpa.util.ProxyManagerImpl</param>
                             </targetClasses>
                             <targetTests>
                                 <param>**.*LLMTest</param>
                             </targetTests>
-                            <excludedTestClasses>
-                                <param>**.*Test</param>
-                            </excludedTestClasses>
                             <mutators>
                                 <mutator>DEFAULTS</mutator>
                             </mutators>
@@ -349,7 +346,7 @@
                                     <outputDirectory>${project.reporting.outputDirectory}/jacoco-llm</outputDirectory>
                                     <includes>
                                         <include>org/apache/openjpa/util/CacheMap.class</include>
-                                        <include>org/apache/openjpa/util/ProxyManagerImpl</include>
+                                        <include>org/apache/openjpa/util/ProxyManagerImpl.class</include>
                                     </includes>
                                 </configuration>
                             </execution>
