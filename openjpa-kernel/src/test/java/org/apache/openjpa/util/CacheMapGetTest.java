@@ -18,6 +18,7 @@
 
 package org.apache.openjpa.util;
 
+import org.apache.openjpa.util.testUtil.InvalidKeyValue;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -43,12 +44,13 @@ public class CacheMapGetTest {
     private static final String VALUE_1 = "V1";
     private static final String KEY_2 = "K2";
     private static final String VALUE_2 = "V2";
+    private static final Object Invalid_key = new InvalidKeyValue();
 
     private enum TestState {
         EMPTY,
         KEY_IN_CACHE,
         KEY_EVICTED_TO_SOFT,
-        KEY_PINNED,
+        KEY_PINNED, INVALID_KEY_IN_CACHE,
     }
 
     public CacheMapGetTest(String description, Object keyToGet, TestState initialState,
@@ -68,8 +70,7 @@ public class CacheMapGetTest {
                 // Black-box: mi aspettavo NullPointerException;
                 // White-box: il metodo ritorna null senza eccezioni se la mappa è vuota
                 {"Get: Key null", null, TestState.EMPTY, null, null},
-
-                {"Get: invalid key", 1, TestState.KEY_IN_CACHE, null, null},
+                {"Get: Invalid Key", Invalid_key, TestState.INVALID_KEY_IN_CACHE, null, null  },
                 {"Get: valid key not in cacheMap", KEY_2, TestState.KEY_IN_CACHE, null, null},
                 {"Get: valid key in cacheMap", KEY_1, TestState.KEY_IN_CACHE, VALUE_1, null},
                 {"Get: Key in soft cache", KEY_1, TestState.KEY_EVICTED_TO_SOFT, VALUE_1, null},
@@ -88,7 +89,9 @@ public class CacheMapGetTest {
             case KEY_IN_CACHE:
                 cacheMap.put(KEY_1, VALUE_1);
                 break;
-
+            case INVALID_KEY_IN_CACHE:
+                cacheMap.put(Invalid_key, VALUE_1);
+                break;
             case KEY_EVICTED_TO_SOFT:
                 //Vogliamo testare l'uscita di un elemento
                 cacheMap.setSoftReferenceSize(1);

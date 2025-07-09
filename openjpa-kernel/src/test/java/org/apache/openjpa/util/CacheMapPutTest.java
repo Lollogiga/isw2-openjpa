@@ -17,6 +17,7 @@
 
 package org.apache.openjpa.util;
 
+import org.apache.openjpa.util.testUtil.InvalidKeyValue;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -101,6 +102,11 @@ public class CacheMapPutTest {
         return Arrays.asList(new Object[][]{
                 {"Put test: null key", null, VALUE_1, TestState.EMPTY, null},
                 {"Put test: null value", KEY_1, null, TestState.EMPTY, null},
+
+                // Casi di test aggiunti
+                {"Put test: invalid key, valid value", new InvalidKeyValue(), VALUE_1, TestState.EMPTY, null},
+                {"Put test: valid key, invalid value", KEY_1, new InvalidKeyValue(), TestState.EMPTY, null},
+
 
                 {"Put test: put key in empty map", KEY_1, VALUE_1, TestState.EMPTY, null},
                 {"Put test: update existing key", KEY_1, VALUE_2, TestState.KEY_IN_CACHE, VALUE_1},

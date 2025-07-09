@@ -26,6 +26,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.mockito.MockedStatic;
 
+import java.sql.Timestamp;
 import java.util.*;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -37,27 +38,38 @@ public class ProxyManagerImplNewCustomProxyTest {
 
     private ProxyManagerImpl proxyManager;
     private Object obj;
+    private final boolean autoOff;
     private final ObjectType objectInstanceType;
     private MockedStatic<ImplHelper> mockImpl;
 
-    public ProxyManagerImplNewCustomProxyTest(ObjectType objectType) throws Exception {
+    public ProxyManagerImplNewCustomProxyTest(ObjectType objectType, boolean autoOff) throws Exception {
         this.obj = generateObj(objectType);
         this.objectInstanceType = objectType;
+        this.autoOff = autoOff;
     }
 
     @Parameterized.Parameters(name = "{index}: {0}")
     public static Collection<Object[]> data() {
+        // Unione di tutti i casi di test da entrambe le classi
         return Arrays.asList(new Object[][]{
-                {ObjectType.NULL},
-                {ObjectType.PROXYABLE},
-                {ObjectType.NON_PROXYABLE_FINAL},
-                {ObjectType.NON_PROXYABLE_CONSTRUCTOR},
-                {ObjectType.PROXY},
-                {ObjectType.COLLECTION},
-                {ObjectType.MAP},
-                {ObjectType.DATE},
-                {ObjectType.CALENDAR},
-                {ObjectType.MANAGEABLE_TYPE}
+                // Casi dalla classe originale
+                {ObjectType.NULL, false},
+                {ObjectType.PROXYABLE, false},
+                {ObjectType.NON_PROXYABLE_FINAL, false},
+                {ObjectType.NON_PROXYABLE_CONSTRUCTOR, false},
+                {ObjectType.PROXY, false},
+                {ObjectType.COLLECTION, false},
+                {ObjectType.COLLECTION, true},
+                {ObjectType.MAP, false},
+                {ObjectType.MAP, true},
+                {ObjectType.DATE, false},
+                {ObjectType.CALENDAR, false},
+                {ObjectType.MANAGEABLE_TYPE, false},
+                // Casi dalla classe di coverage
+                {ObjectType.SORTED_SET_WITH_COMPARATOR, false},
+                {ObjectType.SORTED_MAP_WITH_COMPARATOR, false},
+                {ObjectType.TIMESTAMP, false},
+                {ObjectType.PROXYABLE_BEAN, false}
         });
     }
 
@@ -79,8 +91,7 @@ public class ProxyManagerImplNewCustomProxyTest {
 
     @Test
     public void testNewCustomProxy() {
-        Proxy output = proxyManager.newCustomProxy(obj, false);
-
+        Proxy output = proxyManager.newCustomProxy(obj, this.autoOff);
         checkResult(output);
     }
 
@@ -94,6 +105,7 @@ public class ProxyManagerImplNewCustomProxyTest {
                 // Per questi casi, l'oggetto reale viene gestito nel setUp.
                 return new ProxyableInstance();
 
+            case PROXYABLE_BEAN: // Caso dalla seconda classe
             case PROXYABLE:
                 return new ProxyableInstance();
 
@@ -119,6 +131,18 @@ public class ProxyManagerImplNewCustomProxyTest {
             case CALENDAR:
                 return Calendar.getInstance();
 
+            // Casi dalla seconda classe
+            case SORTED_SET_WITH_COMPARATOR:
+                return new TreeSet<>(Comparator.reverseOrder());
+
+            case SORTED_MAP_WITH_COMPARATOR:
+                return new TreeMap<>(Comparator.reverseOrder());
+
+            case TIMESTAMP:
+                Timestamp ts = new Timestamp(System.currentTimeMillis());
+                ts.setNanos(123456);
+                return ts;
+
             default:
                 throw new Exception("Tipo di oggetto non valido per il test");
         }
@@ -141,6 +165,7 @@ public class ProxyManagerImplNewCustomProxyTest {
                 Assert.assertSame(obj, output);
                 break;
 
+            case PROXYABLE_BEAN: // Caso dalla seconda classe
             case PROXYABLE:
             case COLLECTION:
             case MAP:
@@ -150,6 +175,28 @@ public class ProxyManagerImplNewCustomProxyTest {
                 Assert.assertTrue("L'output deve essere un'istanza di Proxy", output instanceof Proxy);
                 // Verifica che il proxy sia un sottotipo della classe originale
                 Assert.assertTrue("Il proxy deve essere un'istanza del tipo originale", obj.getClass().isAssignableFrom(output.getClass()));
+                break;
+
+            // Asserzioni dalla seconda classe
+            case SORTED_SET_WITH_COMPARATOR:
+                //Mutation 322
+                Assert.assertTrue("Il proxy deve essere un SortedSet", output instanceof SortedSet);
+                Assert.assertEquals("Il comparator di SortedSet deve essere mantenuto", ((SortedSet) obj).comparator(), ((SortedSet) output).comparator());
+                // Checks that the content is copied
+                Assert.assertEquals("Il contenuto di SortedSet deve essere copiato", ((SortedSet) obj).size(), ((SortedSet) output).size());
+                break;
+
+            case SORTED_MAP_WITH_COMPARATOR:
+                //Mutation 330
+                Assert.assertTrue("Il proxy deve essere un SortedMap", output instanceof SortedMap);
+                Assert.assertEquals("Il comparator di SortedMap deve essere mantenuto", ((SortedMap) obj).comparator(), ((SortedMap) output).comparator());
+                Assert.assertEquals("Il contenuto di SortedMap deve essere copiato", ((SortedMap) obj).size(), ((SortedMap) output).size());
+                break;
+
+            case TIMESTAMP:
+                Assert.assertTrue("Il proxy deve essere un Timestamp", output instanceof Timestamp);
+                Assert.assertEquals("I nanosecondi devono essere mantenuti", ((Timestamp) obj).getNanos(), ((Timestamp) output).getNanos());
+                Assert.assertEquals("Il tempo del Timestamp deve essere mantenuto", ((Timestamp) obj).getTime(), ((Timestamp) output).getTime());
                 break;
         }
     }

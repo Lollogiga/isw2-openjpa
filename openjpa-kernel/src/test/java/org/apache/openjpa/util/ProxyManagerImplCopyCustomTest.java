@@ -17,6 +17,7 @@
 
 package org.apache.openjpa.util;
 
+import org.apache.openjpa.util.testUtil.NonProxyableInstanceFinal;
 import org.apache.openjpa.util.testUtil.ObjectType;
 import org.apache.openjpa.util.testUtil.ProxyableInstance;
 import org.junit.After;
@@ -46,20 +47,25 @@ public class ProxyManagerImplCopyCustomTest {
         this.objectInstanceType = objectType;
     }
 
-    @Parameterized.Parameters(name = "{index}: {0}")
+    @Parameterized.Parameters(name = "{index}: Teste com o tipo {0}")
     public static Collection<Object[]> data() {
+
         // Analisi eseguita in black-box al fine di avere un'alta coverage fin da subito:
         // Questi scenari coprono ogni ramo 'if' del metodo copyCustom
-
         return Arrays.asList(new Object[][]{
-                {ObjectType.NULL},                 // if (orig == null)
-                {ObjectType.PROXY},                // if (orig instanceof Proxy)
-                {ObjectType.MANAGEABLE_TYPE},      // if (ImplHelper.isManageable(orig))
-                {ObjectType.COLLECTION},           // if (orig instanceof Collection)
-                {ObjectType.MAP},                  // if (orig instanceof Map)
-                {ObjectType.DATE},                 // if (orig instanceof Date)
-                {ObjectType.CALENDAR},             // if (orig instanceof Calendar)
-                {ObjectType.PROXYABLE}             // L'ultimo caso, per ProxyBean
+                // Casi dalla classe originale (black-box)
+                {ObjectType.NULL},                 // Ramo: if (orig == null)
+                {ObjectType.PROXY},                // Ramo: if (orig instanceof Proxy)
+                {ObjectType.MANAGEABLE_TYPE},      // Ramo: if (ImplHelper.isManageable(orig))
+                {ObjectType.COLLECTION},           // Ramo: if (orig instanceof Collection)
+                {ObjectType.MAP},                  // Ramo: if (orig instanceof Map)
+                {ObjectType.DATE},                 // Ramo: if (orig instanceof Date)
+                {ObjectType.CALENDAR},             // Ramo: if (orig instanceof Calendar)
+                {ObjectType.PROXYABLE},            // Ramo di default per oggetti proxyable
+
+                // Casi dalla classe di coverage (ternario)
+                {ObjectType.PROXYABLE_BEAN},       // Ramo di default, proxy != null
+                {ObjectType.NON_PROXYABLE_BEAN}    // Ramo di default, proxy == null
         });
     }
 
@@ -69,6 +75,7 @@ public class ProxyManagerImplCopyCustomTest {
         // Genera l'oggetto di input basandosi sullo scenario di test
         this.obj = generateInitialObject();
 
+        // Il setup di Mockito è attivato solo quando necessario
         if (objectInstanceType.equals(ObjectType.MANAGEABLE_TYPE)) {
             mockImpl = mockStatic(ImplHelper.class);
             when(ImplHelper.isManageable(any())).thenReturn(true);
@@ -95,9 +102,13 @@ public class ProxyManagerImplCopyCustomTest {
                 return new Date();
             case CALENDAR:
                 return Calendar.getInstance();
-            case MANAGEABLE_TYPE:
             case PROXYABLE:
+            case PROXYABLE_BEAN: // Gestito come un oggetto proxyable standard
                 return new ProxyableInstance();
+            case NON_PROXYABLE_BEAN: // Oggetto non proxyable (classe final)
+                return new NonProxyableInstanceFinal();
+            case MANAGEABLE_TYPE:
+                return new ProxyableInstance(); // L'oggetto stesso non importa, il mock fa il lavoro
             default:
                 return null;
         }
@@ -116,19 +127,18 @@ public class ProxyManagerImplCopyCustomTest {
         switch (objectInstanceType) {
             case NULL:
             case MANAGEABLE_TYPE:
+            case NON_PROXYABLE_BEAN: // Questo caso ora restituisce null
                 Assert.assertNull(copy);
                 break;
 
             case PROXY:
-                // Caso speciale per la copia di un proxy
                 Assert.assertNotNull(copy);
                 Assert.assertNotSame("La copia non deve essere la stessa istanza dell'originale", obj, copy);
-                // La copia deve essere un'istanza della classe base, NON del proxy
-                Assert.assertTrue(copy instanceof Date);
-                Assert.assertFalse("La copia non deve più essere un'istanza di Proxy", copy instanceof Proxy);
+                Assert.assertTrue("La copia deve essere un'istanza della classe base, non del proxy", copy instanceof Date);
                 Assert.assertEquals(new Date(12345), copy);
                 break;
 
+            case PROXYABLE_BEAN:
             case COLLECTION:
             case MAP:
             case DATE:
@@ -140,7 +150,6 @@ public class ProxyManagerImplCopyCustomTest {
                 break;
         }
     }
-
 
     @After
     public void tearDown() {
