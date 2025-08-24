@@ -369,5 +369,66 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>randoop-coverage</id>
+            <properties>
+                <randoop.coverage.includes>org/apache/openjpa/util/**</randoop.coverage.includes>
+            </properties>
+            <build>
+                <plugins>
+
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.10</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent-randoop</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                                <configuration>
+                                    <propertyName>argLineRandoop</propertyName>
+                                    <destFile>${project.build.directory}/jacoco-randoop.exec</destFile>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>report-randoop</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                                <configuration>
+                                    <dataFile>${project.build.directory}/jacoco-randoop.exec</dataFile>
+                                    <outputDirectory>${project.reporting.outputDirectory}/jacoco-randoop</outputDirectory>
+                                    <includes>
+                                        <include>org/apache/openjpa/util/CacheMap.class</include>
+                                        <include>org/apache/openjpa/util/ProxyManagerImpl.class</include>
+
+                                    </includes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Surefire: esegui SOLO i test generati da Randoop -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.2.5</version>
+                        <configuration>
+                            <includes>
+                                <!-- package dei test generati -->
+                                <include>**/org/apache/openjpa/generated/**/RegressionTest*.java</include>
+                            </includes>
+                            <argLine>@{argLineRandoop}</argLine>
+                            <reuseForks>true</reuseForks>
+                            <trimStackTrace>false</trimStackTrace>
+                        </configuration>
+                    </plugin>
+
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
